@@ -1,0 +1,20 @@
+1. Exact aim/focus
+2. Research paper or application
+3. Library
+
+evaluation - valence
+
+dominance and submissive
+
+1. if i am sad, then i will not make it more sad
+	(sentiment opposite not emotion)
+	low to high VAD
+
+1. mood list
+2. sentiment (V-A)
+
+reader mood -> writer sentiment
+
+1. questionnaire
+2. writer gutenberg dataset
+3. how is the EMOTION (not mood)
