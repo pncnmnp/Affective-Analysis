@@ -63,7 +63,17 @@ class Gutenberg_Emotion:
                Sven Buechel and Udo Hahn
         DOI: 10.3233/978-1-61499-672-9-1114
 
-        Params: None
+        Params: lemma_choice (dict) - contains:
+                        path - path of the lemma
+                        range - range of the lemma in format - {"min": MIN_VALUE, "max": MAX_VALUE}
+                        cols - column names in the lemma file according to the format:
+                                {"lemma_col": LEMMA_NAME_COL, 
+                                 "valence": V_COL, 
+                                 "arousal": A_COL, 
+                                 "dominance": D_COL}
+                        scale - any scaling needed at each step.
+                                for BRM - 0
+                                for WARRINER - 5
 
         Returns: A tuple consisting of:
                  Index 0: Dictionary of format - {"document_text": (valence, arousal, dominance)}
@@ -145,6 +155,8 @@ class Gutenberg_Emotion:
                 rmse_A += (train_df.iloc[index]["A"] - document_vad[1])**2
                 rmse_D += (train_df.iloc[index]["D"] - document_vad[2])**2
 
+        # IF EXPERIMENTING WITH A SUBSET OF ORIGINAL CORPUS
+        # REMEMBER TO MODIFY len_train_df to SUBSET LENGTH
         rmse = (sqrt(rmse_V/len_train_df), sqrt(rmse_A/len_train_df), sqrt(rmse_D/len_train_df))
         return (calc_vad, rmse)
 
