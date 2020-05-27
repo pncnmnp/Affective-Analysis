@@ -1,0 +1,4 @@
+//Attribution: Warriner, A.B., Kuperman, V., & Brysbaert, M. (2013). Norms of valence, arousal, and dominance for 13,915 English lemmas. Behavior Research Methods, 45, 1191-1207.//
+//Values were transformed from original by subtracting 5 from every value, resulting in 0,0,0 being the neutral emotion (instead of 5,5,5).//
+//values range from -4 to +4, +4 being happy, excited and in controll.//
+//Lemma	Valence	Arousal	Dominance  //
