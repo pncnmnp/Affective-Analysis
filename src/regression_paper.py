@@ -8,16 +8,19 @@ import nltk
 # PATHS
 NRC_LEMMA_PATH = "../lemma/NRC-VAD-Lexicon.csv"
 BRM_LEMMA_PATH = "../lemma/BRM-emot-submit.csv"
+WARRINER_LEMMA_PATH = "../lemma/LexiconWarriner2013_transformed.csv"
 EMOBANK_PATH = "../corpus/emobank.csv"
 BOOKS_PATH = "../books/books/"
 
 # LEMMA RANGES
 BRM_LEMMA_RANGE = {"min": 1, "max": 9}
 NRC_LEMMA_RANGE = {"min": 0, "max": 1}
+WARRINER_LEMMA_RANGE = {"min": -4, "max": 4}
 EMOBANK_RANGE = {"min": 1, "max": 5}
 
 # COLUMNS
-BRM_COLS = {"valence": "V.Mean.Sum", "arousal": "A.Mean.Sum", "domination": "D.Mean.Sum"}
+BRM_COLS = {"lemma_col": "Word", "valence": "V.Mean.Sum", "arousal": "A.Mean.Sum", "dominance": "D.Mean.Sum"}
+WARRINER_COLS = {"lemma_col": "Lemma", "valence": "Valence", "arousal": "Arousal", "dominance": "Dominance"}
 
 class Gutenberg_Emotion:
     def __init__(self):
@@ -51,7 +54,7 @@ class Gutenberg_Emotion:
         df = pd.read_csv(open(file_name))
         return df
 
-    def emobank(self):
+    def emobank(self, lemma_choice={"path": BRM_LEMMA_PATH, "range": BRM_LEMMA_RANGE, "cols": BRM_COLS, "scale": 0}):
         """
         Maps the text in emobank to VAD space using method mentioned in
         Paper: Emotion Analysis as a Regression Problem —
@@ -72,8 +75,8 @@ class Gutenberg_Emotion:
         train_df = df[df["split"] == "train"]
         len_train_df = len(train_df)
 
-        lemma = self.get_lemma(file_name=BRM_LEMMA_PATH)
-        lemma_range = BRM_LEMMA_RANGE
+        lemma = self.get_lemma(file_name=lemma_choice["path"])
+        lemma_range = lemma_choice["range"]
 
         # TF-IDF on emobank training set's text
         tfidf_vectorizer = TfidfVectorizer(stop_words='english', use_idf=True)
@@ -106,13 +109,13 @@ class Gutenberg_Emotion:
 
                     # Is the token in lemma
                     try:
-                        token_lemma_index = lemma[lemma["Word"] == token].index[0]
+                        token_lemma_index = lemma[lemma[lemma_choice["cols"]["lemma_col"]] == token].index[0]
                     except:
                         continue
 
-                    token_lemma = {"valence": lemma.iloc[token_lemma_index]["V.Mean.Sum"], 
-                                    "arousal": lemma.iloc[token_lemma_index]["A.Mean.Sum"], 
-                                    "dominance": lemma.iloc[token_lemma_index]["D.Mean.Sum"]}
+                    token_lemma = {"valence": lemma.iloc[token_lemma_index][lemma_choice["cols"]["valence"]], 
+                                    "arousal": lemma.iloc[token_lemma_index][lemma_choice["cols"]["arousal"]], 
+                                    "dominance": lemma.iloc[token_lemma_index][lemma_choice["cols"]["dominance"]]}
 
                     # Refer the paper's page 5, equation 3
                     token_upper = (token_idf*token_lemma["valence"], token_idf*token_lemma["arousal"], token_idf*token_lemma["dominance"])
@@ -124,7 +127,7 @@ class Gutenberg_Emotion:
                     # print(token, token_idf, token_lemma, token_upper, token_lower, total_upper, total_lower)
 
             # Dividing total_upper (tuple) with total_lower
-            document_vad = tuple(val/total_lower for val in total_upper if total_lower != 0)
+            document_vad = tuple((val/total_lower)+lemma_choice["scale"] for val in total_upper if total_lower != 0)
 
             #Performing scaling from old range to new range
             old_range = BRM_LEMMA_RANGE["max"] - BRM_LEMMA_RANGE["min"]
@@ -133,6 +136,8 @@ class Gutenberg_Emotion:
 
             # storing value
             calc_vad[text] = document_vad
+
+            # print(text, document_vad)
 
             # calculating RMSE
             if total_lower != 0:
