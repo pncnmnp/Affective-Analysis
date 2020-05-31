@@ -61,7 +61,8 @@ class Models:
 
         return (X_train, y_train, X_val, y_val)
 
-    def gensim_build_vocab(self, X_train, X_val, size=300, window=4, negative=2, workers=3, sample=1e-3, min_count=1):
+    def gensim_build_vocab(self, X_train, X_val, size=300, window=4, 
+                            negative=2, workers=3, sample=1e-3, min_count=1):
         model_dm = gensim.models.Doc2Vec(min_count=min_count, window=window, 
                                         size=size, sample=sample, 
                                         negative=negative, workers=workers)
@@ -149,6 +150,29 @@ class Models:
             "score_val": val_score
         }
 
+    def svr(self, train_vecs, y_train, val_vecs, y_val, 
+                kernel="rbf", C=0.8, epsilon=0.2):
+        svr_reg = make_pipeline(StandardScaler(), SVR(kernel=kernel, C=C, epsilon=epsilon))
+        svr_reg.fit(train_vecs, y_train)
+
+        train_score = svr_reg.score(train_vecs, y_train)
+        val_score = svr_reg.score(val_vecs, y_val)
+        
+        svr_y_pred = svr_reg.predict(train_vecs)
+        train_rmse = sqrt(metrics.mean_squared_error(y_train, svr_y_pred))
+
+        svr_y_pred = svr_reg.predict(val_vecs)
+        val_rmse = sqrt(metrics.mean_squared_error(y_val, svr_y_pred))
+
+        return {
+            "model": svr_reg,
+            "score_train": train_score,
+            "score_val": val_score,
+            "rmse_val": val_rmse,
+            "rmse_train": train_rmse
+        }
+
+
 def custom_model():
     obj = Models()
     df_train, df_val, df_test = obj.emobank_split()
@@ -162,7 +186,8 @@ def custom_model():
     val_vecs = obj.model_vectors(model_dm, model_dbow, X_val)
 
     # print(obj.mlp_regressor(train_vecs, y_train, val_vecs, y_val))
-    print(obj.linear_regression(train_vecs, y_train, val_vecs, y_val))
+    # print(obj.linear_regression(train_vecs, y_train, val_vecs, y_val))
+    print(obj.svr(train_vecs, y_train, val_vecs, y_val))
 
 if __name__ == "__main__":
     custom_model()
