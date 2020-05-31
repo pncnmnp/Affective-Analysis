@@ -137,6 +137,18 @@ class Models:
             "rmse_train": train_rmse
         }
 
+    def linear_regression(self, train_vecs, y_train, val_vecs, y_val):
+        reg = LinearRegression(normalize=True).fit(train_vecs, y_train)
+
+        train_score = reg.score(train_vecs, y_train)
+        val_score = reg.score(val_vecs, y_val)
+
+        return {
+            "model": reg,
+            "score_train": train_score,
+            "score_val": val_score
+        }
+
 def custom_model():
     obj = Models()
     df_train, df_val, df_test = obj.emobank_split()
@@ -149,7 +161,8 @@ def custom_model():
     obj.gensim_train(model_dm, model_dbow, X_val)
     val_vecs = obj.model_vectors(model_dm, model_dbow, X_val)
 
-    print(obj.mlp_regressor(train_vecs, y_train, val_vecs, y_val))
+    # print(obj.mlp_regressor(train_vecs, y_train, val_vecs, y_val))
+    print(obj.linear_regression(train_vecs, y_train, val_vecs, y_val))
 
 if __name__ == "__main__":
     custom_model()
