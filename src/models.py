@@ -13,7 +13,7 @@ from sklearn.decomposition import PCA
 
 from sklearn.linear_model import LinearRegression
 
-from sklearn.svm import SVR
+from sklearn.svm import SVR, NuSVR
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -172,6 +172,27 @@ class Models:
             "rmse_train": train_rmse
         }
 
+    def nu_svr(self, train_vecs, y_train, val_vecs, y_val, 
+                C=1.0, nu=0.1):
+        nu_svr_reg = make_pipeline(StandardScaler(), NuSVR(C=1.0, nu=0.1))
+        nu_svr_reg.fit(train_vecs, y_train)
+
+        train_score = nu_svr_reg.score(train_vecs, y_train)
+        val_score = nu_svr_reg.score(val_vecs, y_val)
+
+        nu_svr_y_pred = nu_svr_reg.predict(train_vecs)
+        train_rmse = sqrt(metrics.mean_squared_error(y_train, nu_svr_y_pred))
+
+        nu_svr_y_pred = nu_svr_reg.predict(val_vecs)
+        val_rmse = sqrt(metrics.mean_squared_error(y_val, nu_svr_y_pred))
+
+        return {
+            "model": nu_svr_reg,
+            "score_train": train_score,
+            "score_val": val_score,
+            "rmse_val": val_rmse,
+            "rmse_train": train_rmse
+        }
 
 def custom_model():
     obj = Models()
@@ -187,7 +208,8 @@ def custom_model():
 
     # print(obj.mlp_regressor(train_vecs, y_train, val_vecs, y_val))
     # print(obj.linear_regression(train_vecs, y_train, val_vecs, y_val))
-    print(obj.svr(train_vecs, y_train, val_vecs, y_val))
+    # print(obj.svr(train_vecs, y_train, val_vecs, y_val))
+    print(obj.nu_svr(train_vecs, y_train, val_vecs, y_val))
 
 if __name__ == "__main__":
     custom_model()
