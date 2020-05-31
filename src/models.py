@@ -52,14 +52,14 @@ class Models:
 
         return labelized
 
-    def emobank_preprocess(self, df_train, df_val, emotion="D"):
+    def emobank_preprocess(self, df_train, df_val, emotion="V"):
         X_train, y_train = df_train["text"], df_train[emotion]
         X_val, y_val = df_val["text"], df_val[emotion]
 
         X_train = self.labelize(self.clean_text(X_train), 'TRAIN')
         X_val = self.labelize(self.clean_text(X_val), 'DEV')
 
-        return (X_train, X_val)
+        return (X_train, y_train, X_val, y_val)
 
     def gensim_build_vocab(self, X_train, X_val, size=300, window=4, negative=2, workers=3, sample=1e-3, min_count=1):
         model_dm = gensim.models.Doc2Vec(min_count=min_count, window=window, 
@@ -76,7 +76,7 @@ class Models:
 
         return (model_dm, model_dbow)
 
-    def gensim_train(self, model_dw, model_dbow, X, epochs=20):
+    def gensim_train(self, model_dm, model_dbow, X, epochs=20):
         model_dm.train(X, total_examples = len(X), epochs=epochs)
         model_dbow.train(X, total_examples = len(X), epochs=epochs)
 
@@ -92,3 +92,64 @@ class Models:
 
         vecs = np.hstack((vecs_dm, vecs_dbow))
         return vecs
+
+    def mlp_regressor(self, train_vecs, y_train, 
+                        val_vecs, y_val,
+                        hidden_layers=(10, 5), max_iter=300, 
+                        alpha=1e-4, learning_rate_init=0.0001, 
+                        verbose=True, tol=0.00001, solver="adam", 
+                        activation="logistic", pca_variance=0.95):
+        regr = MLPRegressor(hidden_layer_sizes=hidden_layers, 
+                            max_iter=max_iter, alpha=alpha, 
+                            learning_rate_init=learning_rate_init, 
+                            verbose=verbose, tol=tol, 
+                            solver=solver, activation=activation)
+        scaler = StandardScaler()
+        scaler.fit(train_vecs)
+
+        train_vecs = scaler.transform(train_vecs)
+        val_vecs = scaler.transform(val_vecs)
+
+        pca = PCA(pca_variance)
+        pca.fit(train_vecs)
+
+        train_vecs = pca.transform(train_vecs)
+        val_vecs = pca.transform(val_vecs)
+
+        regr.fit(train_vecs, y_train)
+
+        train_score = regr.score(train_vecs, y_train)
+        val_score = regr.score(val_vecs, y_val)
+        loss = regr.loss_
+
+        y_pred = regr.predict(val_vecs)
+        val_rmse = sqrt(metrics.mean_squared_error(y_val, y_pred))
+        
+        y_pred = regr.predict(train_vecs)
+        train_rmse = sqrt(metrics.mean_squared_error(y_train, y_pred))
+
+        return {
+            "model": regr,
+            "score_train": train_score,
+            "score_val": val_score,
+            "loss": loss,
+            "rmse_val": val_rmse,
+            "rmse_train": train_rmse
+        }
+
+def custom_model():
+    obj = Models()
+    df_train, df_val, df_test = obj.emobank_split()
+    X_train, y_train, X_val, y_val = obj.emobank_preprocess(df_train, df_val)
+    model_dm, model_dbow = obj.gensim_build_vocab(X_train, X_val)
+    
+    obj.gensim_train(model_dm, model_dbow, X_train)
+    train_vecs = obj.model_vectors(model_dm, model_dbow, X_train)
+
+    obj.gensim_train(model_dm, model_dbow, X_val)
+    val_vecs = obj.model_vectors(model_dm, model_dbow, X_val)
+
+    print(obj.mlp_regressor(train_vecs, y_train, val_vecs, y_val))
+
+if __name__ == "__main__":
+    custom_model()
