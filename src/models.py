@@ -24,6 +24,18 @@ class Models:
         self.reg_paper_obj = regression_paper.Gutenberg_Emotion()
 
     def emobank_split(self, corpus_path=regression_paper.EMOBANK_PATH):
+        """
+        Splits the emobank corpus into train, dev and test split.
+        The split is done based on the "split" column in the dataset.
+
+        Params: corpus_path - Path of the emobank corpus
+                             Default - EMOBANK_PATH in regression_paper.py
+
+        Returns: Tuple with 3 indexes - 
+                 index 0: Pandas dataframe for train set 
+                 index 1: Pandas dataframe for dev set 
+                 index 2: Pandas dataframe for test set 
+        """
         df = self.reg_paper_obj.get_corpus(corpus_path)
         df_train = df[df["split"] == "train"]
         df_val = df[df["split"] == "dev"]
@@ -32,6 +44,19 @@ class Models:
         return (df_train, df_val, df_test)
 
     def clean_text(self, corpus):
+        """
+        Formats the corpus by - 
+            * stripping whitespaces
+            * text to lowercase
+            * Replace '\n' with ''
+            * separating out each punctuation
+            * splitting out each word
+
+        Params: corpus - Corpus to be formatted
+
+        Returns: List of lists, with each sub-list containing the
+                 list of processed words.
+        """
         # TODO: Add option for Lemmetization
         punctuation = """@.,?!:;(){}[]"""
         corpus = [z.strip().lower().replace('\n','') for z in corpus]
@@ -44,6 +69,14 @@ class Models:
         return corpus
 
     def labelize(self, text, label_type):
+        """
+        Adds the Gensim text labels required for doc2vec
+
+        Params: text - preprocessed output from clean_text()
+               label_type - string containing label name
+
+        Returns: Labelized list of text
+        """
         LabeledSentence = gensim.models.doc2vec.LabeledSentence
         labelized = list()
         for i, v in enumerate(text):
@@ -53,6 +86,23 @@ class Models:
         return labelized
 
     def emobank_preprocess(self, df_train, df_val, emotion="V"):
+        """
+        Preprocessing of the text in emobank corpus
+
+        Params: df_train - Pandas Dataframe of training set
+               df_val - Pandas Dataframe of validation/dev set
+               emotion - Type of emotion to perform training on
+                         (i.e. V - Validation
+                               A - Arousal
+                               D - Dominance)
+                         Default - V
+
+        Returns: Tuple with 4 indexes - 
+                 index 0 (X_train) - preprocessed training text 
+                 index 1 (y_train) - Emotions corresponding to training data
+                 index 2 (X_val) - preprocessed validation text
+                 index 3 (y_val) - Emotions corresponding to validation data
+        """
         X_train, y_train = df_train["text"], df_train[emotion]
         X_val, y_val = df_val["text"], df_val[emotion]
 
@@ -63,6 +113,19 @@ class Models:
 
     def gensim_build_vocab(self, X_train, X_val, size=300, window=4, 
                             negative=2, workers=3, sample=1e-3, min_count=1):
+        """
+        Returns the Distributed Memory (DM) and Distributed Bag of Words 
+        (DBOW) models of Doc2Vec.
+
+        Params: X_train - Preprocessed training text
+                X_val - Preprocessed validation/dev text
+                For the rest of parameter info see - 
+                https://radimrehurek.com/gensim/models/doc2vec.html
+        
+        Returns: Tuple with 2 indexes - 
+                 index 0 (model_dm) - Returns DM model
+                 index 1 (model_dbow) - Returns DBOW model
+        """
         model_dm = gensim.models.Doc2Vec(min_count=min_count, window=window, 
                                         size=size, sample=sample, 
                                         negative=negative, workers=workers)
@@ -78,16 +141,51 @@ class Models:
         return (model_dm, model_dbow)
 
     def gensim_train(self, model_dm, model_dbow, X, epochs=20):
+        """
+        Training the Distributed Memory (DM) and Distributed Bag of Words 
+        (DBOW) models.
+
+        Params: model_dm - Distributed Memory model
+                model_dbow - Distributed Bag of Words model
+                X - Preprocessed text on which training is to be done
+                epochs - No. of iterations over the corpus
+                         Default -  20
+
+        Returns: Tuple with 2 indexes - 
+                 index 0 (model_dm) - Returns trained DM model
+                 index 1 (model_dbow) - Returns trained DBOW model
+        """
         model_dm.train(X, total_examples = len(X), epochs=epochs)
         model_dbow.train(X, total_examples = len(X), epochs=epochs)
 
         return (model_dm, model_dbow)
 
     def gensim_vectors(self, model, corpus, size):
+        """
+        To get the Gensim vectors of a model.
+
+        Params: model - Trained model (DM or DBOW model)
+                corpus - Corpus on which the model was trained
+                size - Reshape size
+
+        Returns: Numpy array of vectors corresponding 
+                 the model and corpus
+        """
         vecs = [np.array(model[z.tags[0]]).reshape((1, size)) for z in corpus]
         return np.concatenate(vecs)
 
     def model_vectors(self, model_dm, model_dbow, X, size=300):
+        """
+        To get the Gensim vectors of DM and DBOW models.
+
+        Params: model_dm - Distributed Memory model
+                model_dbow - Distributed Bag of Words model
+                X - Preprocessed text on which training is to be done
+                size - Reshape size
+        
+        Returns: Numpy array containing combined vectors
+                 of both DM and DBOW models of length - size*2
+        """
         vecs_dm = self.gensim_vectors(model_dm, X, size)
         vecs_dbow = self.gensim_vectors(model_dbow, X, size)
 
