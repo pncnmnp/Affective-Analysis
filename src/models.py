@@ -198,6 +198,30 @@ class Models:
                         alpha=1e-4, learning_rate_init=0.0001, 
                         verbose=True, tol=0.00001, solver="adam", 
                         activation="logistic", pca_variance=0.95):
+        """
+        Multilayer Perceptron model for training emotions.
+
+        Params: train_vecs - Vectors of training set
+                y_train - Emotions corresponding to training data
+                val_vecs - Vectors of validation/dev set
+                y_val - Emotions corresponding to validation/dev data
+
+                For the rest of parameters see - 
+                https://scikit-learn.org/stable/modules/generated/sklearn.neural_network.MLPRegressor.html
+
+        Returns: Dictionary of format - 
+                 {
+                     "model": Trained model,
+                     "score_train": Score of model on training set
+                     "score_val": Score of model on validation set
+                     "loss": Final loss of the model
+                             (before the iteration stops)
+                     "rmse_val": RMSE (Root Mean Square Error) on
+                                 validation set
+                     "rmse_train": RMSE (Root Mean Square Error) on
+                                 training set
+                 }
+        """
         regr = MLPRegressor(hidden_layer_sizes=hidden_layers, 
                             max_iter=max_iter, alpha=alpha, 
                             learning_rate_init=learning_rate_init, 
@@ -206,15 +230,19 @@ class Models:
         scaler = StandardScaler()
         scaler.fit(train_vecs)
 
+        # Mean Normalization
         train_vecs = scaler.transform(train_vecs)
         val_vecs = scaler.transform(val_vecs)
 
+        # Principal Component Analysis
         pca = PCA(pca_variance)
         pca.fit(train_vecs)
 
+        # Reducing dimensions
         train_vecs = pca.transform(train_vecs)
         val_vecs = pca.transform(val_vecs)
 
+        # Training model
         regr.fit(train_vecs, y_train)
 
         train_score = regr.score(train_vecs, y_train)
@@ -237,6 +265,24 @@ class Models:
         }
 
     def linear_regression(self, train_vecs, y_train, val_vecs, y_val):
+        """
+        Linear Regression model for training emotions.
+
+        For more details on base model, see - 
+        https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html
+        
+        Params: train_vecs - Vectors of training set
+                y_train - Emotions corresponding to training data
+                val_vecs - Vectors of validation/dev set
+                y_val - Emotions corresponding to validation/dev data
+
+        Returns: Dictionary of format - 
+                 {
+                     "model": Trained model,
+                     "score_train": Score of model on training set
+                     "score_val": Score of model on validation set
+                 }
+        """
         reg = LinearRegression(normalize=True).fit(train_vecs, y_train)
 
         train_score = reg.score(train_vecs, y_train)
@@ -250,6 +296,28 @@ class Models:
 
     def svr(self, train_vecs, y_train, val_vecs, y_val, 
                 kernel="rbf", C=0.8, epsilon=0.2):
+        """
+        Support Vector Regression model for training emotions.
+
+        Params: train_vecs - Vectors of training set
+                y_train - Emotions corresponding to training data
+                val_vecs - Vectors of validation/dev set
+                y_val - Emotions corresponding to validation/dev data
+
+                For the rest of parameters see - 
+                https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVR.html
+
+        Returns: Dictionary of format - 
+                 {
+                     "model": Trained model,
+                     "score_train": Score of model on training set
+                     "score_val": Score of model on validation set
+                     "rmse_val": RMSE (Root Mean Square Error) on
+                                 validation set
+                     "rmse_train": RMSE (Root Mean Square Error) on
+                                 training set
+                 }
+        """
         svr_reg = make_pipeline(StandardScaler(), SVR(kernel=kernel, C=C, epsilon=epsilon))
         svr_reg.fit(train_vecs, y_train)
 
@@ -272,6 +340,28 @@ class Models:
 
     def nu_svr(self, train_vecs, y_train, val_vecs, y_val, 
                 C=1.0, nu=0.1):
+        """
+        Nu Support Vector Regression model for training emotions.
+
+        Params: train_vecs - Vectors of training set
+                y_train - Emotions corresponding to training data
+                val_vecs - Vectors of validation/dev set
+                y_val - Emotions corresponding to validation/dev data
+
+                For the rest of parameters see - 
+                https://scikit-learn.org/stable/modules/generated/sklearn.svm.NuSVR.html
+
+        Returns: Dictionary of format - 
+                 {
+                     "model": Trained model,
+                     "score_train": Score of model on training set
+                     "score_val": Score of model on validation set
+                     "rmse_val": RMSE (Root Mean Square Error) on
+                                 validation set
+                     "rmse_train": RMSE (Root Mean Square Error) on
+                                 training set
+                 }
+        """
         nu_svr_reg = make_pipeline(StandardScaler(), NuSVR(C=1.0, nu=0.1))
         nu_svr_reg.fit(train_vecs, y_train)
 
