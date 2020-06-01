@@ -1,5 +1,8 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 from math import sqrt
+from nltk.tokenize import sent_tokenize
+
+import clean_text_gutentag
 
 import pandas as pd
 import json
@@ -21,6 +24,7 @@ EMOBANK_RANGE = {"min": 1, "max": 5}
 # COLUMNS
 BRM_COLS = {"lemma_col": "Word", "valence": "V.Mean.Sum", "arousal": "A.Mean.Sum", "dominance": "D.Mean.Sum"}
 WARRINER_COLS = {"lemma_col": "Lemma", "valence": "Valence", "arousal": "Arousal", "dominance": "Dominance"}
+NRC_COLS = {"lemma_col": "Word", "valence": "Valence", "arousal": "Arousal", "dominance": "Dominance"}
 
 class Gutenberg_Emotion:
     def __init__(self):
@@ -54,7 +58,7 @@ class Gutenberg_Emotion:
         df = pd.read_csv(open(file_name))
         return df
 
-    def emobank(self, lemma_choice={"path": BRM_LEMMA_PATH, "range": BRM_LEMMA_RANGE, "cols": BRM_COLS, "scale": 0}):
+    def emobank(self, lemma_choice={"path": NRC_LEMMA_PATH, "range": NRC_LEMMA_RANGE, "cols": NRC_COLS, "scale": 0}):
         """
         Maps the text in emobank to VAD space using method mentioned in
         Paper: Emotion Analysis as a Regression Problem —
@@ -140,9 +144,9 @@ class Gutenberg_Emotion:
             document_vad = tuple((val/total_lower)+lemma_choice["scale"] for val in total_upper if total_lower != 0)
 
             #Performing scaling from old range to new range
-            old_range = BRM_LEMMA_RANGE["max"] - BRM_LEMMA_RANGE["min"]
+            old_range = NRC_LEMMA_RANGE["max"] - NRC_LEMMA_RANGE["min"]
             new_range = EMOBANK_RANGE["max"] - EMOBANK_RANGE["min"]
-            document_vad = tuple((((val - BRM_LEMMA_RANGE["min"]) * new_range) / old_range) + EMOBANK_RANGE["min"] for val in document_vad)
+            document_vad = tuple((((val - NRC_LEMMA_RANGE["min"]) * new_range) / old_range) + EMOBANK_RANGE["min"] for val in document_vad)
 
             # storing value
             calc_vad[text] = document_vad
@@ -160,8 +164,86 @@ class Gutenberg_Emotion:
         rmse = (sqrt(rmse_V/len_train_df), sqrt(rmse_A/len_train_df), sqrt(rmse_D/len_train_df))
         return (calc_vad, rmse)
 
+    def book_formatting(self, text):
+        text = clean_text_gutentag.clean_text(text)
+        text = sent_tokenize(text)    
+        return text
+
+    def gutenberg(self, book_id, lemma_choice={"path": BRM_LEMMA_PATH, "range": BRM_LEMMA_RANGE, "cols": BRM_COLS, "scale": 0}):
+        """
+        TODO: Remove redundancy by merging code shared by self.gutenberg() and self.emobank() 
+        """
+        # Fetches the emobank corpus and extracts the training set
+        book = self.get_book(book_id)["text"]
+        train_df = pd.DataFrame(self.book_formatting(book), columns=["text"])
+
+        len_train_df = len(train_df)
+
+        lemma = self.get_lemma(file_name=lemma_choice["path"])
+        lemma_range = lemma_choice["range"]
+
+        # TF-IDF on emobank training set's text
+        tfidf_vectorizer = TfidfVectorizer(stop_words='english', use_idf=True)
+        tfidf_vectorizer_vector = tfidf_vectorizer.fit_transform(train_df["text"].tolist())
+        
+        # Stores the final VAD values for each document
+        calc_vad = dict()
+
+        rmse_V, rmse_A, rmse_D = 0, 0, 0
+
+        for index in range(len_train_df):
+            text = train_df.iloc[index]["text"]
+            tokens = nltk.word_tokenize(text)
+
+            # Finding TF-IDF for the current index
+            index_vector_tfidfvectorizer = tfidf_vectorizer_vector[index]
+            df = pd.DataFrame(index_vector_tfidfvectorizer.T.todense(), index=tfidf_vectorizer.get_feature_names(), columns=["tfidf"])
+
+            # Extracts the non-zero TF-IDF indices
+            curr_df = df[df["tfidf"] > 0.0]
+            curr_indexes = list(curr_df.index)
+            
+            total_upper, total_lower = (0, 0, 0), 0
+
+            for token in tokens:
+                token = token.lower()
+                if token in curr_indexes:
+                    # Calculating values
+                    token_idf = curr_df["tfidf"][token]
+
+                    # Is the token in lemma
+                    try:
+                        token_lemma_index = lemma[lemma[lemma_choice["cols"]["lemma_col"]] == token].index[0]
+                    except:
+                        continue
+
+                    token_lemma = {"valence": lemma.iloc[token_lemma_index][lemma_choice["cols"]["valence"]], 
+                                    "arousal": lemma.iloc[token_lemma_index][lemma_choice["cols"]["arousal"]], 
+                                    "dominance": lemma.iloc[token_lemma_index][lemma_choice["cols"]["dominance"]]}
+
+                    # Refer the paper's page 5, equation 3
+                    token_upper = (token_idf*token_lemma["valence"], token_idf*token_lemma["arousal"], token_idf*token_lemma["dominance"])
+                    token_lower = token_idf
+
+                    total_upper = tuple(total_upper[x]+token_upper[x] for x in range(3))
+                    total_lower += token_lower
+
+                    # print(token, token_idf, token_lemma, token_upper, token_lower, total_upper, total_lower)
+
+            # Dividing total_upper (tuple) with total_lower
+            document_vad = tuple((val/total_lower)+lemma_choice["scale"] for val in total_upper if total_lower != 0)
+
+            # storing value
+            calc_vad[text] = document_vad
+
+            # print(text, document_vad)
+
+        return (calc_vad)
+
 if __name__ == "__main__":
     obj = Gutenberg_Emotion()
-    check = obj.emobank()
+    check = obj.gutenberg(1777)
+    emotions = list(check.values())
+    gutenberg_emotion_df = pd.DataFrame(emotions, columns=["valence", "arousal", "dominance"])
 
-    print(check[1])
+    print(gutenberg_emotion_df.describe())
