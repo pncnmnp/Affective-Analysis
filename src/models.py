@@ -111,7 +111,11 @@ class Models:
 
         return (X_train, y_train, X_val, y_val)
 
-    def gensim_build_vocab(self, X_train, X_val, size=300, window=4, 
+    def text_preprocess(self, text):
+        X = self.labelize(self.clean_text(text), 'TEST')
+        return X
+
+    def gensim_build_vocab(self, X_train, X_val=None, size=300, window=4, 
                             negative=2, workers=3, sample=1e-3, min_count=1):
         """
         Returns the Distributed Memory (DM) and Distributed Bag of Words 
@@ -135,8 +139,12 @@ class Models:
                                         negative=negative, dm=0, 
                                         workers=workers)
 
-        model_dm.build_vocab(X_train + X_val)
-        model_dbow.build_vocab(X_train + X_val)
+        if X_val == None:
+            model_dm.build_vocab(X_train)
+            model_dbow.build_vocab(X_train)
+        else:
+            model_dm.build_vocab(X_train + X_val)
+            model_dbow.build_vocab(X_train + X_val)
 
         return (model_dm, model_dbow)
 
@@ -386,7 +394,7 @@ def custom_model():
     obj = Models()
     df_train, df_val, df_test = obj.emobank_split()
     X_train, y_train, X_val, y_val = obj.emobank_preprocess(df_train, df_val)
-    model_dm, model_dbow = obj.gensim_build_vocab(X_train, X_val)
+    model_dm, model_dbow = obj.gensim_build_vocab(X_train, X_val=X_val)
     
     obj.gensim_train(model_dm, model_dbow, X_train)
     train_vecs = obj.model_vectors(model_dm, model_dbow, X_train)
