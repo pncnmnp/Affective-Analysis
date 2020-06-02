@@ -169,25 +169,32 @@ class Gutenberg_Emotion:
         text = sent_tokenize(text)    
         return text
 
-    def read_time(self, text, reading_time=5):
+    def read_time(self, text, reading_time=5, in_seconds=False):
         # Average reading time is -
         # https://ezinearticles.com/?What-is-the-Average-Reading-Speed-and-the-Best-Rate-of-Reading?&id=2298503
         words = word_tokenize(text)
         reading_minutes = int(len(words)/200)
         reading_seconds = int((len(words)/200 - reading_minutes)*60)
 
-        if reading_minutes >= reading_time:
-            return True
-        return False
+        # If in_seconds == True, then reading_time is interpreted in seconds
+        # Else reading_time is interpreted in minutes
+        if in_seconds:
+            if (reading_minutes == 0 and reading_seconds >= reading_time) or (reading_minutes == 1):
+                return True
+            return False
+        elif in_seconds == False:
+            if reading_minutes >= reading_time:
+                return True
+            return False
 
-    def split_text_read_time(self, df, reading_time=5, text_col="text"):
+    def split_text_read_time(self, df, reading_time=5, in_seconds=False, text_col="text"):
         group_sentences = list()
         sentences = df[text_col].tolist()
         start_index, end_index = 0, 1
 
         while start_index < len(sentences):
             combined = ' '.join(sentences[start_index: end_index])
-            if self.read_time(combined, reading_time=reading_time) == False:
+            if self.read_time(combined, reading_time=reading_time, in_seconds=in_seconds) == False:
                 # Check if end of text is reached
                 if end_index >= len(sentences):
                     group_sentences.append(combined)
@@ -201,7 +208,11 @@ class Gutenberg_Emotion:
         
         return pd.DataFrame(group_sentences, columns=[text_col])
 
-    def gutenberg(self, book_id, reading_time_split=5, lemma_choice={"path": BRM_LEMMA_PATH, "range": BRM_LEMMA_RANGE, "cols": BRM_COLS, "scale": 0}):
+    def gutenberg(self, book_id, reading_time_split=5, in_seconds=False, 
+                    lemma_choice={"path": BRM_LEMMA_PATH, 
+                                  "range": BRM_LEMMA_RANGE, 
+                                  "cols": BRM_COLS, 
+                                  "scale": 0}):
         """
         TODO: Remove redundancy by merging code shared by self.gutenberg() and self.emobank() 
         """
@@ -211,12 +222,17 @@ class Gutenberg_Emotion:
         
         # Debugging info
         print("Scanning (ID - {}): {} BY {}".format(book_id, book_info["title"][0], book_info["author"][0]))
-        print("Text will be split into reading time of {} minutes".format(reading_time_split))
+        if in_seconds:
+            print("Text will be split into reading time of {} seconds".format(reading_time_split))
+        else:
+            print("Text will be split into reading time of {} minutes".format(reading_time_split))
 
         train_df = pd.DataFrame(self.book_formatting(book), columns=["text"])
 
         if reading_time_split != None:
-            train_df = self.split_text_read_time(train_df, reading_time=reading_time_split)
+            train_df = self.split_text_read_time(train_df, 
+                                                reading_time=reading_time_split, 
+                                                in_seconds=in_seconds)
 
         len_train_df = len(train_df)
 
@@ -283,7 +299,7 @@ class Gutenberg_Emotion:
 
 if __name__ == "__main__":
     obj = Gutenberg_Emotion()
-    check = obj.gutenberg(1777, reading_time_split=None)
+    check = obj.gutenberg(1777, reading_time_split=15, in_seconds=True)
     emotions = list(check.values())
     gutenberg_emotion_df = pd.DataFrame(emotions, columns=["valence", "arousal", "dominance"])
 
