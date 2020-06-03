@@ -1,6 +1,8 @@
-import pandas as pd
 from scipy.stats import truncnorm
 from sklearn.neighbors import KNeighborsClassifier
+from collections import Counter
+
+import pandas as pd
 import regression_paper
 
 # To see how this mapping was derived, see - 
@@ -9,7 +11,7 @@ import regression_paper
 # DOI: https://doi.org/10.1007/s11042-015-3119-y
 EMOTION_VAD_MAP_PATH = "../lemma/emotions.csv"
 
-# Trying both truncated normal and non-truncated normal
+# TODO: Try both truncated normal and non-truncated normal
 
 class Categorization:
     def __init__(self):
@@ -27,6 +29,30 @@ class Categorization:
 
         return df
 
+    def map_emobank(self, models=10, train_length=10000, to_save=False, filename="model.csv"):
+        # Training X different models (X = models)
+        trained_models = list()
+        for index in range(models):
+            X, y = self.training_set(df=self.get_mapping(), length=train_length)
+            neigh = self.train(X, y, 5, 'uniform')
+            trained_models.append(neigh)
+
+        df = self.get_and_scale_emobank()
+        # Add a column 'emotions' with None values
+        df["emotions"] = pd.Series("", index=df.index)
+
+        for index in range(len(df)):
+            emotion = list()
+            for e in range(models):
+                vals = (df.iloc[index]["V"], df.iloc[index]["A"], df.iloc[index]["D"])
+                emotion += list(trained_models[e].predict([vals]))
+            df.at[index, "emotions"] = dict(Counter(emotion))
+
+        if to_save == True:
+            df.to_csv(filename, encoding='utf-8', index=False)
+        else:
+            return df
+
     def get_mapping(self, filename=EMOTION_VAD_MAP_PATH):
         return pd.read_csv(open(EMOTION_VAD_MAP_PATH))
 
@@ -37,7 +63,7 @@ class Categorization:
 
     def generate_random_category(self, category, V_mean, V_std, 
                                     A_mean, A_std, D_mean, 
-                                    D_std, length=100000):
+                                    D_std, length=10000):
         V = self.get_truncated_normal(V_mean, V_std, 
                                     V_mean - V_std, V_mean + V_std, length)
         A = self.get_truncated_normal(A_mean, A_std, 
@@ -50,12 +76,13 @@ class Categorization:
 
         return (X_points, y_categories)
 
-    def training_set(self, df):
+    def training_set(self, df, length=10000):
         combined_X, combined_y = list(), list()
 
         for index in range(len(df)):
+            print(index)
             emotion = df.iloc[index]
-            X, y = self.generate_random_category(*tuple(emotion.tolist()))
+            X, y = self.generate_random_category(*tuple(emotion.tolist()), length=10000)
             combined_X.extend(X)
             combined_y.extend(y)
 
@@ -68,8 +95,9 @@ class Categorization:
 
 if __name__ == "__main__":
     obj = Categorization()
-    X, y = obj.training_set(obj.get_mapping())
-    neigh = obj.train(X, y, 5, 'uniform')
-    print(neigh.classes_)
-    print(neigh.predict_proba([(5.88, 5, 5.44)]))
-    print(neigh.predict([(5.88, 5, 5.44)]))
+    obj.map_emobank(train_length=1000000, to_save=True)
+    # X, y = obj.training_set(obj.get_mapping())
+    # neigh = obj.train(X, y, 5, 'uniform')
+    # print(neigh.classes_)
+    # print(neigh.predict_proba([(5.88, 5, 5.44)]))
+    # print(neigh.predict([(5.88, 5, 5.44)]))
