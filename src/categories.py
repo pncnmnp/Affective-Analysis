@@ -18,6 +18,15 @@ class Categorization:
         self.reg_paper_obj = regression_paper.Gutenberg_Emotion()
 
     def get_and_scale_emobank(self, filename=regression_paper.EMOBANK_PATH):
+        """
+        Returns Emobank corpus as a Pandas Dataframe.
+        The V,A,D values in Emobank corpus are scaled from 1-5 to 1-9.
+
+        Params: filename - Path of the emobank corpus
+                           (Default - EMOBANK_PATH in regression_paper.py)
+
+        Returns: df - Pandas Dataframe containing Emobank corpus
+        """
         df = self.reg_paper_obj.get_corpus(filename)
         emo_min, emo_max, map_min, map_max = 1, 5, 1, 9
         old_range = (emo_max - emo_min)
@@ -30,6 +39,40 @@ class Categorization:
         return df
 
     def map_emobank(self, models=10, train_length=10000, to_save=False, filename="model.csv"):
+        """
+        Predict the emotions present in each text in Emobank corpus.
+        Returns Emobank corpus as a Pandas Dataframe.
+        Dataframe contains a new column - "emotion", where for each index, 
+        emotion is a Counter dictionary (from library - "collections").
+
+        The Counter dictionary contains the no. of times an emotion was predicted by a model for a particular text.
+        For example: Text - "Remember what she said in my last letter?"
+                     can have predicted emotions like - {'sentimental': 10, 'terrible': 4, 'exciting': 5, 'shock': 19, 'hate': 8, 'joy': 4}
+                     (for models=50)
+
+                     Above result can be interpreted as - Out of 50 trained models (models are trained using KNN),
+                     19 models thought the emotion in the text was 'shock'
+                     10 models thought the emotion was 'sentimental', etc.
+
+        Implementation Details: X different models (where X = models(parameter) ) are trained on KNN.
+                                For each KNN model, 
+                                    New training data is generated using method - training_set().
+                                    The length of the training data equals train_length(parameter).
+
+                                Then all the trained KNN models are tested on each text to predict text's emotion.
+                                Counter of the predictions is then inserted in the "emotions" column
+        
+        Params: models - No. of KNN models to train
+                         (Default - 10)
+                train_length - Length of the training corpus
+                               (Default - 10000)
+                to_save - If False, will return a Pandas Dataframe of emobank corpus with predictions
+                          If True, will save the Pandas Dataframe  of emobank corpus in CSV format
+                          (Default - False)
+                filename - Filename for saving the model
+                           Is used if to_save == True
+                           (Default - "model.csv")
+        """
         # Training X different models (X = models)
         trained_models = list()
         for index in range(models):
@@ -80,7 +123,6 @@ class Categorization:
         combined_X, combined_y = list(), list()
 
         for index in range(len(df)):
-            print(index)
             emotion = df.iloc[index]
             X, y = self.generate_random_category(*tuple(emotion.tolist()), length=10000)
             combined_X.extend(X)
@@ -95,7 +137,7 @@ class Categorization:
 
 if __name__ == "__main__":
     obj = Categorization()
-    obj.map_emobank(train_length=1000000, to_save=True)
+    obj.map_emobank(models=100, train_length=1000000, to_save=True)
     # X, y = obj.training_set(obj.get_mapping())
     # neigh = obj.train(X, y, 5, 'uniform')
     # print(neigh.classes_)
