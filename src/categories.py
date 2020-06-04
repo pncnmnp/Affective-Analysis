@@ -72,6 +72,8 @@ class Categorization:
                 filename - Filename for saving the model
                            Is used if to_save == True
                            (Default - "model.csv")
+        
+        Returns: Pandas Dataframe of the emobank corpus
         """
         # Training X different models (X = models)
         trained_models = list()
@@ -97,9 +99,36 @@ class Categorization:
             return df
 
     def get_mapping(self, filename=EMOTION_VAD_MAP_PATH):
+        """
+        Returns the mapping of emotions to the VAD space.
+        To see how this mapping was derived, see - 
+        Affect representation and recognition in 3D continuous valence–arousal–dominance space
+        Gyanendra K Verma & Uma Shanker Tiwary
+        DOI: https://doi.org/10.1007/s11042-015-3119-y
+
+        (The file should be in CSV format)
+
+        Params: filename - Path of mapping file
+                           (Default - EMOTION_VAD_MAP_PATH)
+        
+        Returns: Pandas Dataframe of the mapping
+        """
         return pd.read_csv(open(EMOTION_VAD_MAP_PATH))
 
     def get_truncated_normal(self, mean, sd, low, up, length):
+        """
+        Returns a list of truncated normal continuous random variables.
+        For more info, see - 
+        https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.truncnorm.html
+
+        Params: mean - mean value
+                std - standard deviation value
+                low - lower bound value
+                up - upper bound value
+                length - no. of random values to be returned
+
+        Returns: List of random values
+        """
         return truncnorm(((low-mean)/sd), 
                          ((up-mean)/sd), 
                           loc = mean, scale = sd).rvs(length)
@@ -107,6 +136,33 @@ class Categorization:
     def generate_random_category(self, category, V_mean, V_std, 
                                     A_mean, A_std, D_mean, 
                                     D_std, length=10000):
+        """
+        Generates training set for a particular emotion.
+        It uses the mean and standard deviation of VAD space (corresponding to the emotion),
+        to generate a random training set.
+
+        For each space (V, A, D), it generates a list of truncated normal continuous random variables.
+        (using method - get_truncated_normal())
+
+        For get_truncated_normal():
+            The lower bound is (V/A/D)_mean - (V/A/D)_std
+            The upper bound is (V/A/D)_mean + (V/A/D)_std
+        So the values are predicted from the highly dense 68% space (in a Gaussian graph).
+
+        Params: category - Name of the emotion
+                V_mean - mean of Valence space for emotion in the 'category'
+                V_std - standard deviation of Valence space for emotion in the 'category'
+                A_mean - mean of Arousal space for emotion in the 'category'
+                A_std - standard deviation of Arousal space for emotion in the 'category'
+                D_mean - mean of Dominance space for emotion in the 'category'
+                D_std - standard deviation of Dominance space for emotion in the 'category'
+                length - size of the training set
+                         (Default - 10000)
+
+        Returns: Tuple with two indexes - 
+                 index 0: X_points - Generated training set (X) of the emotion
+                 index 1: y_categories - Labels (Y) of the training set of the emotion
+        """
         V = self.get_truncated_normal(V_mean, V_std, 
                                     V_mean - V_std, V_mean + V_std, length)
         A = self.get_truncated_normal(A_mean, A_std, 
@@ -120,6 +176,16 @@ class Categorization:
         return (X_points, y_categories)
 
     def training_set(self, df, length=10000):
+        """
+        Generates an entire training set for all emotions.
+
+        Params: df - Pandas Dataframe as returned by method get_mapping()
+                length - Length of each emotion's training set
+
+        Returns: Tuple with two indexes - 
+                 index 0: combined_X - Generated training set (X) of all emotion
+                 index 1: combined_y - Labels (Y) of the training set of all emotion
+        """
         combined_X, combined_y = list(), list()
 
         for index in range(len(df)):
@@ -131,6 +197,16 @@ class Categorization:
         return (combined_X, combined_y)
 
     def train(self, X, y, n_neighbors, weights):
+        """
+        Trains a KNN model.
+
+        Params: X - Generated training set
+                y - Labels of the training set
+                For the rest of the parameters, see: 
+                https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html
+
+        Returns: Trained KNN model
+        """
         neigh = KNeighborsClassifier(n_neighbors=n_neighbors, weights=weights)
         neigh.fit(X, y)
         return neigh
