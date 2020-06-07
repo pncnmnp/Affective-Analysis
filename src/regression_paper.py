@@ -7,6 +7,7 @@ import clean_text_gutentag
 import pandas as pd
 import json
 import nltk
+import gc
 
 # PATHS
 NRC_LEMMA_PATH = "../lemma/NRC-VAD-Lexicon.csv"
@@ -28,7 +29,9 @@ NRC_COLS = {"lemma_col": "Word", "valence": "Valence", "arousal": "Arousal", "do
 
 class Gutenberg_Emotion:
     def __init__(self):
-        pass
+        # Counter detects the no. of sentences which cannot be split in seconds
+        # And are split in minutes
+        self.issue_sentences = 0
 
     def get_lemma(self, file_name=BRM_LEMMA_PATH):
         """
@@ -179,7 +182,12 @@ class Gutenberg_Emotion:
         # If in_seconds == True, then reading_time is interpreted in seconds
         # Else reading_time is interpreted in minutes
         if in_seconds:
-            if (reading_minutes == 0 and reading_seconds >= reading_time) or (reading_minutes == 1):
+            # NOTE: In worst case scenario is is observed that the senteces can jump from a few seconds like
+            # 5 seconds to 2 minutes or more! If this is an issue, consider splitting the sentence into parts.
+            if (reading_minutes == 0 and reading_seconds >= reading_time):
+                return True
+            elif (reading_minutes >= 1):
+                self.issue_sentences += 1
                 return True
             return False
         elif in_seconds == False:
@@ -220,6 +228,9 @@ class Gutenberg_Emotion:
         book_info = self.get_book(book_id)
         book = book_info["text"]
         
+        # Set issue_sentences counter to 0
+        self.issue_sentences = 0
+
         # Debugging info
         print("Scanning (ID - {}): {} BY {}".format(book_id, book_info["title"][0], book_info["author"][0]))
         if in_seconds:
@@ -233,6 +244,9 @@ class Gutenberg_Emotion:
             train_df = self.split_text_read_time(train_df, 
                                                 reading_time=reading_time_split, 
                                                 in_seconds=in_seconds)
+
+        # Debug info
+        print("Text splitting is completed.\n{} sentences were split in minutes.".format(self.issue_sentences))
 
         len_train_df = len(train_df)
 
@@ -248,7 +262,13 @@ class Gutenberg_Emotion:
 
         rmse_V, rmse_A, rmse_D = 0, 0, 0
 
+        progress = 0.01
         for index in range(len_train_df):
+            # Checking and returning progress
+            if (index/len_train_df) > progress:
+                print("Progress: {}%\r".format(round(progress*100), 2), end="")
+                progress += 0.01
+
             text = train_df.iloc[index]["text"]
             tokens = nltk.word_tokenize(text)
 
@@ -297,10 +317,30 @@ class Gutenberg_Emotion:
 
         return (calc_vad)
 
-if __name__ == "__main__":
+def save_gutenberg_emotions(stats_path, full_para_path, ids):
     obj = Gutenberg_Emotion()
-    check = obj.gutenberg(1777, reading_time_split=15, in_seconds=True)
-    emotions = list(check.values())
-    gutenberg_emotion_df = pd.DataFrame(emotions, columns=["valence", "arousal", "dominance"])
+    for gid in ids[146:]:
+        check = obj.gutenberg(gid, reading_time_split=15, in_seconds=True)
+        emotions = list(check.values())
+        gutenberg_emotion_df = pd.DataFrame(emotions, columns=["valence", "arousal", "dominance"])
 
-    print(gutenberg_emotion_df.describe())
+        # storing full paragraph-emotion data
+        with open(full_para_path+str(gid)+'.json', 'w') as f:
+            json.dump(check, f)
+        
+        # storing book emotion stats
+        gutenberg_emotion_df.to_csv(stats_path+str(gid)+".csv", index=False, encoding='utf-8')
+
+        gc.collect()
+
+if __name__ == "__main__":
+    # obj = Gutenberg_Emotion()
+    # check = obj.gutenberg(11, reading_time_split=30, in_seconds=True)
+    # emotions = list(check.values())
+    # gutenberg_emotion_df = pd.DataFrame(emotions, columns=["valence", "arousal", "dominance"])
+
+    # print(gutenberg_emotion_df.describe())
+    GUTENBERG_ID_PATH = "../books/gutenberg_book_ids.json"
+    GUTENBERG_STATS_DIRECTORY = "../books/stats/"
+    GUTENBERG_COMPLETE_DIRECTORY = "../books/complete/"
+    save_gutenberg_emotions(GUTENBERG_STATS_DIRECTORY, GUTENBERG_COMPLETE_DIRECTORY, json.load(open(GUTENBERG_ID_PATH)))
