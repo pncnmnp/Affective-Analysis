@@ -1,6 +1,7 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 from math import sqrt
 from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.stem.wordnet import WordNetLemmatizer
 
 import clean_text_gutentag
 
@@ -32,6 +33,7 @@ class Gutenberg_Emotion:
         # Counter detects the no. of sentences which cannot be split in seconds
         # And are split in minutes
         self.issue_sentences = 0
+        self.how_many = 0
 
     def get_lemma(self, file_name=BRM_LEMMA_PATH):
         """
@@ -281,6 +283,7 @@ class Gutenberg_Emotion:
             curr_indexes = list(curr_df.index)
             
             total_upper, total_lower = (0, 0, 0), 0
+            lemmatizer = WordNetLemmatizer()
 
             for token in tokens:
                 token = token.lower()
@@ -292,7 +295,11 @@ class Gutenberg_Emotion:
                     try:
                         token_lemma_index = lemma[lemma[lemma_choice["cols"]["lemma_col"]] == token].index[0]
                     except:
-                        continue
+                        try:
+                            token_lemma_index = lemma[lemma[lemma_choice["cols"]["lemma_col"]] == lemmatizer.lemmatize(token)].index[0]
+                            self.how_many += 1
+                        except:
+                            continue
 
                     token_lemma = {"valence": lemma.iloc[token_lemma_index][lemma_choice["cols"]["valence"]], 
                                     "arousal": lemma.iloc[token_lemma_index][lemma_choice["cols"]["arousal"]], 
@@ -315,27 +322,118 @@ class Gutenberg_Emotion:
 
             # print(text, document_vad)
 
+        print(self.how_many)
+
+        return (calc_vad)
+
+    def recommendation(self, answers, reading_time_split=15, in_seconds=True, 
+                    lemma_choice={"path": BRM_LEMMA_PATH, 
+                                  "range": BRM_LEMMA_RANGE, 
+                                  "cols": BRM_COLS, 
+                                  "scale": 0}):
+        book = answers
+        
+        # Set issue_sentences counter to 0
+        self.issue_sentences = 0
+
+        train_df = pd.DataFrame(sent_tokenize(book), columns=["text"])
+
+        if reading_time_split != None:
+            train_df = self.split_text_read_time(train_df, 
+                                                reading_time=reading_time_split, 
+                                                in_seconds=in_seconds)
+
+        len_train_df = len(train_df)
+        # print(train_df)
+
+        lemma = self.get_lemma(file_name=lemma_choice["path"])
+        lemma_range = lemma_choice["range"]
+
+        # TF-IDF on emobank training set's text
+        tfidf_vectorizer = TfidfVectorizer(stop_words='english', use_idf=True)
+        tfidf_vectorizer_vector = tfidf_vectorizer.fit_transform(train_df["text"].tolist())
+        
+        # Stores the final VAD values for each document
+        calc_vad = dict()
+
+        rmse_V, rmse_A, rmse_D = 0, 0, 0
+
+        progress = 0.01
+        for index in range(len_train_df):
+            # Checking and returning progress
+            if (index/len_train_df) > progress:
+                print("Progress: {}%\r".format(round(progress*100), 2), end="")
+                progress += 0.01
+
+            text = train_df.iloc[index]["text"]
+            tokens = nltk.word_tokenize(text)
+
+            # Finding TF-IDF for the current index
+            index_vector_tfidfvectorizer = tfidf_vectorizer_vector[index]
+            df = pd.DataFrame(index_vector_tfidfvectorizer.T.todense(), index=tfidf_vectorizer.get_feature_names(), columns=["tfidf"])
+
+            # Extracts the non-zero TF-IDF indices
+            curr_df = df[df["tfidf"] > 0.0]
+            curr_indexes = list(curr_df.index)
+            
+            total_upper, total_lower = (0, 0, 0), 0
+            lemmatizer = WordNetLemmatizer()
+
+            for token in tokens:
+                token = token.lower()
+                if token in curr_indexes:
+                    # Calculating values
+                    token_idf = curr_df["tfidf"][token]
+
+                    # Is the token in lemma
+                    try:
+                        token_lemma_index = lemma[lemma[lemma_choice["cols"]["lemma_col"]] == token].index[0]
+                    except:
+                        try:
+                            token_lemma_index = lemma[lemma[lemma_choice["cols"]["lemma_col"]] == lemmatizer.lemmatize(token)].index[0]
+                            self.how_many += 1
+                        except:
+                            continue
+
+                    token_lemma = {"valence": lemma.iloc[token_lemma_index][lemma_choice["cols"]["valence"]], 
+                                    "arousal": lemma.iloc[token_lemma_index][lemma_choice["cols"]["arousal"]], 
+                                    "dominance": lemma.iloc[token_lemma_index][lemma_choice["cols"]["dominance"]]}
+
+                    # Refer the paper's page 5, equation 3
+                    token_upper = (token_idf*token_lemma["valence"], token_idf*token_lemma["arousal"], token_idf*token_lemma["dominance"])
+                    token_lower = token_idf
+
+                    total_upper = tuple(total_upper[x]+token_upper[x] for x in range(3))
+                    total_lower += token_lower
+
+            # Dividing total_upper (tuple) with total_lower
+            document_vad = tuple((val/total_lower)+lemma_choice["scale"] for val in total_upper if total_lower != 0)
+
+            # storing value
+            calc_vad[text] = document_vad
+
         return (calc_vad)
 
 def save_gutenberg_emotions(stats_path, full_para_path, ids):
     obj = Gutenberg_Emotion()
-    for gid in ids[146:]:
-        check = obj.gutenberg(gid, reading_time_split=15, in_seconds=True)
+    # for gid in ids[146:]:
+    for gid in [11]:
+        check = obj.gutenberg(gid, reading_time_split=1, in_seconds=True)
         emotions = list(check.values())
         gutenberg_emotion_df = pd.DataFrame(emotions, columns=["valence", "arousal", "dominance"])
 
         # storing full paragraph-emotion data
-        with open(full_para_path+str(gid)+'.json', 'w') as f:
+        with open(full_para_path+str(gid)+'_sentences.json', 'w') as f:
             json.dump(check, f)
         
         # storing book emotion stats
-        gutenberg_emotion_df.to_csv(stats_path+str(gid)+".csv", index=False, encoding='utf-8')
+        gutenberg_emotion_df.to_csv(stats_path+str(gid)+"_sentences.csv", index=False, encoding='utf-8')
 
         gc.collect()
 
 if __name__ == "__main__":
     # obj = Gutenberg_Emotion()
-    # check = obj.gutenberg(11, reading_time_split=30, in_seconds=True)
+    # check = obj.gutenberg(11, reading_time_split=15, in_seconds=True)
     # emotions = list(check.values())
     # gutenberg_emotion_df = pd.DataFrame(emotions, columns=["valence", "arousal", "dominance"])
 
