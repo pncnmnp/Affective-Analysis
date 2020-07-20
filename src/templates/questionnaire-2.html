@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+	<meta charset="utf-8">
+	<meta name="author" content="parth_parikh">
+	<meta name="description" content="Questionnaire to recommend books">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+    <title>Questionnaire</title>
+
+</head>
+
+<body>
+    <script>
+        var count = 180;
+        var time = setInterval(count_timer, 1000);
+
+        function count_timer() {
+            count--;
+            document.getElementById('timer').innerHTML = count;
+            if (count == 0) {
+                clearInterval(time);
+                document.getElementById("mood-para-form").submit()
+            }
+        }
+    </script>
+    <h1>Questionnaire to recommend books</h1>
+    <p>Describe your <b>current mood</b> in the next <span id="timer">180</span> seconds</p>
+    
+    <form id="mood-para-form" action="{{ url_for('second') }}" method="post">
+        <textarea rows=4 id="mood-para" name="mood-para"></textarea>
+        <br>
+        <input type="submit" value="Submit">
+    </form>
+</body>
+</html>	
