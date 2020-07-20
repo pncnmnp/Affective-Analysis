@@ -1,0 +1,8 @@
+textarea{width:100%; font-family: Georgia, Times, 'Times New Roman', serif;}
+input{font-family: Georgia, Times, 'Times New Roman', serif;}
+body{font-family: Georgia, Times, 'Times New Roman', serif;font-size:18px;max-width:38rem;padding: 2rem;margin: auto;text-align:justify;}
+#choice-form{text-align:left;}​
+.block{display:inline-block;width: 140px;}
+h1{text-align: left;}
+#mood-scale{text-align: center;}
+img {height: 12em;}
