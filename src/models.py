@@ -92,7 +92,7 @@ class Models:
         Params: df_train - Pandas Dataframe of training set
                df_val - Pandas Dataframe of validation/dev set
                emotion - Type of emotion to perform training on
-                         (i.e. V - Validation
+                         (i.e. V - Valence
                                A - Arousal
                                D - Dominance)
                          Default - V
@@ -326,6 +326,7 @@ class Models:
                                  training set
                  }
         """
+        # TODO: Add PCA
         svr_reg = make_pipeline(StandardScaler(), SVR(kernel=kernel, C=C, epsilon=epsilon))
         svr_reg.fit(train_vecs, y_train)
 
@@ -370,6 +371,7 @@ class Models:
                                  training set
                  }
         """
+        # TODO: Add PCA
         nu_svr_reg = make_pipeline(StandardScaler(), NuSVR(C=1.0, nu=0.1))
         nu_svr_reg.fit(train_vecs, y_train)
 
@@ -407,5 +409,40 @@ def custom_model():
     # print(obj.svr(train_vecs, y_train, val_vecs, y_val))
     print(obj.nu_svr(train_vecs, y_train, val_vecs, y_val))
 
+def predict_gutenberg(book_id, stats_path="../books/stats/"):
+    model_obj = Models()
+
+    df_train, df_val, df_test = model_obj.emobank_split()
+    X_train, y_train, X_val, y_val = model_obj.emobank_preprocess(df_train, df_val)
+    model_dm, model_dbow = model_obj.gensim_build_vocab(X_train, X_val=X_val)
+
+    model_obj.gensim_train(model_dm, model_dbow, X_train)
+    train_vecs = model_obj.model_vectors(model_dm, model_dbow, X_train)
+
+    model_obj.gensim_train(model_dm, model_dbow, X_val)
+    val_vecs = model_obj.model_vectors(model_dm, model_dbow, X_val)
+
+    svr = model_obj.svr(train_vecs, y_train, val_vecs, y_val)
+
+    reg_obj = regression_paper.Gutenberg_Emotion()
+    book_info = reg_obj.get_book(book_id)
+    book = book_info["text"]
+    train_df = pd.DataFrame(reg_obj.book_formatting(book), columns=["text"])
+
+    train_df = reg_obj.split_text_read_time(train_df, 
+                                        reading_time=10, 
+                                        in_seconds=True)
+
+    model = Models()
+    X_book = model.text_preprocess(train_df["text"])
+    model_dm, model_dbow = model.gensim_build_vocab(X_book)
+    model.gensim_train(model_dm, model_dbow, X_book)
+    book_vecs = model.model_vectors(model_dm, model_dbow, X_book)
+    book_predict = svr["model"].predict(book_vecs)
+
+    book_predict_df = pd.DataFrame(book_predict)
+    book_predict_df.to_csv(stats_path+str(book_id)+"_ml.csv", index=False, encoding='utf-8')
+    print(book_predict_df.describe())
+
 if __name__ == "__main__":
-    custom_model()
+    predict_gutenberg(11)
