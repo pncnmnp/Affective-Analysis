@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+	<meta charset="utf-8">
+	<meta name="author" content="parth_parikh">
+	<meta name="description" content="Questionnaire to recommend books">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+    <title>Questionnaire</title>
+
+</head>
+
+<body>
+    <h1>Questionnaire for Book Recommendation</h1>
+    <p>On a scale of 1 to 9, please rate how your mood has been in the past 24 hours. Keep in mind that 1 is low intensity and 9 is high intensity.</p>
+    <form id="mood-scale" action="{{ url_for('recommend_scale') }}" method="post">
+        <div class="slider">
+            <label><b>Exciting:</b> </label>
+            <span id="slider-val-1">
+            </span>
+            <br>
+            <input type="range" min="1" max="9" value="5" id="slider1" name="exciting">
+        </div>
+
+        <div class="slider">
+            <label><b>Happy:</b> </label>
+            <span id="slider-val-2">
+            </span>
+            <br>
+            <input type="range" min="1" max="9" value="5" id="slider2" name="happy">
+        </div>
+
+        <div class="slider">
+            <label><b>Love:</b> </label>
+            <span id="slider-val-3">
+            </span>
+            <br>
+            <input type="range" min="1" max="9" value="5" id="slider3" name="love">
+        </div>
+
+        <div class="slider">
+            <label><b>Angry:</b> </label>
+            <span id="slider-val-4">
+            </span>
+            <br>
+            <input type="range" min="1" max="9" value="5" id="slider4" name="hate">
+        </div>
+
+        <div class="slider">
+            <label><b>Melancholy:</b> </label>
+            <span id="slider-val-5">
+            </span>
+            <br>
+            <input type="range" min="1" max="9" value="5" id="slider5" name="melancholy">
+        </div>
+
+        <div class="slider">
+            <label><b>Sad:</b> </label>
+            <span id="slider-val-6">
+            </span>
+            <br>
+            <input type="range" min="1" max="9" value="5" id="slider6" name="sad">
+        </div>
+
+        <div class="slider">
+            <label><b>Depressing:</b> </label>
+            <span id="slider-val-7">
+            </span>
+            <br>
+            <input type="range" min="1" max="9" value="5" id="slider7" name="depressing">
+        </div>
+
+        <input type="submit" value="Submit">
+    </form>
+    <script>
+        var slider1 = document.getElementById("slider1");
+        var output1 = document.getElementById("slider-val-1");
+        output1.innerHTML = slider1.value;
+        slider1.oninput = function() {
+        output1.innerHTML = this.value;
+        }
+
+        var slider2 = document.getElementById("slider2");
+        var output2 = document.getElementById("slider-val-2");
+        output2.innerHTML = slider2.value;
+        slider2.oninput = function() {
+        output2.innerHTML = this.value;
+        }
+
+        var slider3 = document.getElementById("slider3");
+        var output3 = document.getElementById("slider-val-3");
+        output3.innerHTML = slider3.value;
+        slider3.oninput = function() {
+        output3.innerHTML = this.value;
+        }
+
+        var slider4 = document.getElementById("slider4");
+        var output4 = document.getElementById("slider-val-4");
+        output4.innerHTML = slider4.value;
+        slider4.oninput = function() {
+        output4.innerHTML = this.value;
+        }
+
+        var slider5 = document.getElementById("slider5");
+        var output5 = document.getElementById("slider-val-5");
+        output5.innerHTML = slider5.value;
+        slider5.oninput = function() {
+        output5.innerHTML = this.value;
+        }
+
+        var slider6 = document.getElementById("slider6");
+        var output6 = document.getElementById("slider-val-6");
+        output6.innerHTML = slider6.value;
+        slider6.oninput = function() {
+        output6.innerHTML = this.value;
+        }
+
+        var slider7 = document.getElementById("slider7");
+        var output7 = document.getElementById("slider-val-7");
+        output7.innerHTML = slider7.value;
+        slider7.oninput = function() {
+        output7.innerHTML = this.value;
+        }
+    </script>
+</body>
+</html>	
