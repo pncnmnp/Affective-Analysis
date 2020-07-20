@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+	<meta charset="utf-8">
+	<meta name="author" content="parth_parikh">
+	<meta name="description" content="Questionnaire to recommend books">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+    <title>Questionnaire</title>
+
+</head>
+
+<body>
+    <h1>Recommendations</h1>
+    {% for i in range(book_range) %}
+    <p>
+        <h2>{{ i+1 }}</h2>
+        <!-- <img src="https://www.gutenberg.org/cache/epub/{{ book_ids[i] }}/pg{{ book_ids[i] }}.cover.medium.jpg"><br> -->
+        <b>Book name:</b> <i>{{ metas[i]["title"][0] }}</i><br>
+        <b>Author:</b> <i>{{ metas[i]["author"][0] }}</i><br>
+        <b>Genre:</b> 
+        <i>
+            {% for j in range(genre_len[i]) %}
+                {{ metas[i]["subject"][j] }}{{ "," if not loop.last }} 
+            {% endfor %}
+        </i><br>
+        <b>Gutenberg Id:</b> {{ book_ids[i] }}<br>
+        <b>Gutenberg Link:</b> <i><a href="https://www.gutenberg.org/ebooks/{{ book_ids[i] }}">https://www.gutenberg.org/ebooks/{{ book_ids[i] }}</a></i><br>
+    </p>
+    {% endfor %}
+</body>
+</html>	
